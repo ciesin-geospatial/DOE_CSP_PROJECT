@@ -124,7 +124,7 @@ def create_data_table(table_data, table_index, model_type, model_name, selectabl
         html.P(),
     ])
 
-def create_model_variable_page(tab, model_vars, model_type):
+def create_model_variable_page(tab, model_vars, model_type, session):
     '''
     for the provided tab, collects all variables under
     the same section+subsection combination
@@ -137,7 +137,13 @@ def create_model_variable_page(tab, model_vars, model_type):
     subsec = None
     tableID = None
     
-    app = helpers.json_load(cfg.app_json)
+    # app = helpers.json_load(cfg.app_json)
+    # read the session data
+    for item in session:
+        if 'app_json' in item.keys():
+            app = item['app_json']
+        else:
+            app = None
     #subset the variables belonging to the tab
     tab_vars = [mv for mv in model_vars if mv['Tab']==tab]
 
@@ -227,6 +233,10 @@ def run_model(csp, desal, finance, json_file, desal_file, finance_file, timestam
     '''
     runs solar thermal desal system with financial model
     '''
+    # TODO: update to pass in data from session
+    # this will require looking inside SamBaseClass to 
+    # see what is required (should be just the parameters plus
+    # output of the design model)
     stdm = SamBaseClass(CSP=csp,
                         desalination=desal,
                         financial=finance,
@@ -273,7 +283,7 @@ loading = html.Div([
 parameters_navbar = dbc.NavbarSimple(
     children=[dbc.NavItem(dbc.NavLink("Home", href='/home')),
               dbc.NavItem(dbc.NavLink("Models", href='/model-selection')),
-              dbc.NavItem(dbc.NavLink("Parameters"), active=True),
+              dbc.NavItem(dbc.NavLink("Parameters", active=True)),
               dbc.NavItem(dbc.NavLink('Help', href='/assets/docs/documentation.pdf', target='_blank', external_link=True))
     ],
     brand="System Configuration",
@@ -440,7 +450,7 @@ side_panel = dbc.Card([model_card, desal_design_results_card, primary_card,],cla
 
 BUTTONS = html.Div([dbc.Row([dbc.Col(SAM_JSON_BUTTON,className='d-flex justify-content-end'),dbc.Col(REFRESH_BUTTON, className ='d-flex')])])
 
-tabs = dbc.Row([dbc.Col(side_panel, width=3), dbc.Col([tabs_accordion,  BUTTONS], width=9, id='tabs-data-initialize')],no_gutters=True)
+tabs = dbc.Row([dbc.Col(side_panel, width=3), dbc.Col([tabs_accordion,  BUTTONS], width=9, id='tabs-data-initialize')])
 
 model_tables_layout = html.Div([parameters_navbar, tabs])
 #
@@ -476,13 +486,19 @@ for model, functions in pdeps.functions_per_model.items():
 @app.callback(
     Output('tabs-card', 'children'),
     [Input('tabs-data-initialize', 'children'),
-     Input('sam-json','contents')]
+     Input('sam-json','contents'), 
+     Input('session', 'data')]
 )
-def create_tabs_and_tables(x, samjson):
+def create_tabs_and_tables(x, samjson, data):
     # return the tabs belonging to the collapse button
 
     #create dict lookups for model and filenames
-    app = helpers.json_load(cfg.app_json)
+    # app = helpers.json_load(cfg.app_json)
+    for item in data:
+        if 'app_json' in item.keys():
+            app = item.get('app_json')
+        else:
+            return 'session data not found'
     flkup = cfg.build_file_lookup(app['solar'],app['desal'],app['finance'],app['timestamp'])
       
 
@@ -614,7 +630,8 @@ def create_tabs_and_tables(x, samjson):
                                         create_model_variable_page(
                                             tab=j,
                                             model_vars=Model_vars[i],
-                                            model_type=i))] 
+                                            model_type=i, 
+                                            session=data))] 
                                              
                                               
                                     )for j in Model_tabs[i]
@@ -628,12 +645,19 @@ def create_tabs_and_tables(x, samjson):
 
 @app.callback(
     Output('desal-design-results', 'children'),
-    [Input('run-desal-design', 'n_clicks')],
+    [Input('run-desal-design', 'n_clicks'), 
+     Input('session','data')],
     [State({'type':'desal-table', 'index': ALL, 'model': ALL}, 'data')], 
     prevent_initial_call=True)
-def run_desal_design(desalDesign, desalData):
+def run_desal_design(desalDesign, data, desalData):
     #create dict lookups for model and filenames
-    app = helpers.json_load(cfg.app_json)
+    # app = helpers.json_load(cfg.app_json)
+    print(data)
+    for item in data:
+        if 'app_json' in item.keys():
+            app = item.get('app_json')
+        else:
+            app = {}
     flkup = cfg.build_file_lookup(app['solar'],app['desal'],app['finance'],app['timestamp'])
 
     desal_design_vars = dict()
@@ -643,15 +667,19 @@ def run_desal_design(desalDesign, desalData):
             desal_design_vars[row['Name']]=convert_strings_to_literal(row)
 
     #write the dict out into a JSON
+    # update this to return values for user display
     with flkup['desal_design_outfile'].open('w') as write_file:
         json.dump(desal_design_vars, write_file)
 
     #run the desal design simulation model
+    # TODO: update to write output to session data rather than file
+    # inputs should be from session data
     stdm = SamBaseClass(desalination=app['desal'], 
                         desal_json_value_filepath=flkup['desal_design_outfile'])
     stdm.desal_design(desal=app['desal'])
 
     #read the the results and format to display
+    # TODO: check this in as well. 
     if app['parametric']:
         with open(flkup['desal_design_parametric_infile'], "r") as read_file:
             desal_design_load = json.load(read_file)   
@@ -678,14 +706,20 @@ def run_desal_design(desalDesign, desalData):
 
 @app.callback([Output(f"collapse-title-{i}", 'children') for i in models],
             [Output(f'collapse-doc-link-{i}', 'href') for i in models],
-            [Input('tabs-card','children')])
-def title_collapse_buttons(x):
+            [Input('tabs-card','children'), 
+             Input('session', 'data')])
+def title_collapse_buttons(x, data):
     '''
     Titles the collapse buttons based on values stored in JSON file
     For the models selected, figures out the page in our documentation
     to point the user to and returns the link to that page
     '''
-    app_vals = helpers.json_load(cfg.app_json)
+    #app_vals = helpers.json_load(cfg.app_json)
+    for item in data:
+        if 'app_json' in item.keys():
+            app_vals = item.get('app_json')
+        else:
+            app_vals = {}
     # shorter references
     dref = app_vals['desal']
     sref = app_vals['solar']
@@ -741,46 +775,72 @@ def toggle_model_tabs(n1, n2, n3, is_open1, is_open2, is_open3):
 
 @app.callback(
     Output('parametric-alert', 'is_open'),
-    [Input('p-alert-init', 'children')])
-def toggle_parametric_alert(_init):
+    [Input('p-alert-init', 'children')], 
+    Input('session','data'))
+def toggle_parametric_alert(_init, data):
     '''reads app json and opens alert if parametric set to true'''
-    appj = helpers.json_load(cfg.app_json)
+    # appj = helpers.json_load(cfg.app_json)
+    for item in data:
+        if 'app_json' in item.keys():
+            appj = item.get('app_json')
+        else:
+            appj = {}
     return appj["parametric"]
 
 @app.callback(
     Output('sam-json', 'children'),
-    [Input('sam-json-button', 'children')])
-def sam_json_button(_init):
+    [Input('sam-json-button', 'children'), 
+     Input('session','data')])
+def sam_json_button(_init, data):
     '''
     reads app json and opens alert if parametric set to true
     Not activated for parametric study and static collector models
     '''
-    appj = helpers.json_load(cfg.app_json)
+    #appj = helpers.json_load(cfg.app_json)
+    for item in data:
+        if 'app_json' in item.keys():
+            appj = item.get('app_json')
+        else:
+            appj = {}
 
     if not appj["parametric"] and appj['solar'] not in ['SC_ETC', 'SC_FPC']:
         return SAM_JSON_file
 
 @app.callback(
     Output('powertower-alert', 'is_open'),
-    [Input('powertower-alert-init', 'children')])
-def toggle_powertower_alert(_init):
+    [Input('powertower-alert-init', 'children'), 
+     Input('session','data')])
+def toggle_powertower_alert(_init, data):
     '''reads app json and opens alert if parametric set to true'''
-    appj = helpers.json_load(cfg.app_json)
+    # appj = helpers.json_load(cfg.app_json)
+    for item in data:
+        if 'app_json' in item.keys():
+            appj = item.get('app_json')
+        else:
+            appj = {}
     return  appj["solar"] == 'tcsmolten_salt' 
 
 @app.callback(
     Output('powertower2-alert', 'is_open'),
-    [Input('powertower2-alert-init', 'children')])
-def toggle_powertower2_alert(_init):
+    [Input('powertower2-alert-init', 'children'),
+     Input('session','data')],
+    )
+def toggle_powertower2_alert(_init, data):
     '''reads app json and opens alert if parametric set to true'''
-    appj = helpers.json_load(cfg.app_json)
-    return appj["solar"] == 'tcsdirect_steam' 
+    # appj = helpers.json_load(cfg.app_json)
 
+    for item in data:
+        if 'app_json' in item.keys():
+            appj = item.get('app_json')
+        else:
+            appj = {}
+    return appj["solar"] == 'tcsdirect_steam' 
 @app.callback(
     [Output('model-loading-output','children'),
     Output('model-loading', 'children'),
     Output('sim-button', 'children')],
-    [Input('model-button','n_clicks')],
+    [Input('model-button','n_clicks'), 
+     Input('session','data')],
     [State({'type':'solar-table', 'index': ALL, 'model': ALL}, 'data'), 
     State({'type':'desal-table', 'index': ALL, 'model': ALL}, 'data'),
     State({'type':'finance-table', 'index': ALL, 'model': ALL}, 'data'),
@@ -791,7 +851,7 @@ def toggle_powertower2_alert(_init):
     prevent_initial_call=True)
     # For pulling the selected parametric variables???
     #  Input('datatable-row-ids', 'selected_row_ids'),
-def update_model_variables_and_run_model(n_clicks, solTableData, desTableData, finTableData,
+def update_model_variables_and_run_model(n_clicks, data, solTableData, desTableData, finTableData,
                                          selectedSolarRows, selectedDesalRows, selectedFinRows,
                                          sam_json): 
     '''
@@ -806,8 +866,12 @@ def update_model_variables_and_run_model(n_clicks, solTableData, desTableData, f
 
     if n_clicks:
         #create dict lookups for model and filenames
-        app = helpers.json_load(cfg.app_json)
-
+        # app = helpers.json_load(cfg.app_json)
+        for item in data:
+            if 'app_json' in item.keys():
+                app = item.get('app_json')
+            else:
+                app = {}      
         #create simple name:value dicts from model variables
         # to be used by SamBaseClass
         solar_output_vars = dict()
@@ -898,6 +962,7 @@ def update_model_variables_and_run_model(n_clicks, solTableData, desTableData, f
                         'finance_outfile': finance_model_outfile,
                         'timestamp': timestamp}
         helpers.json_update(gui_out_files, cfg.app_json) 
+        # add to session as a new dictionary
             
         # Update input json files according to the selected rows
         if len(parametric_info) > 0:
@@ -909,6 +974,7 @@ def update_model_variables_and_run_model(n_clicks, solTableData, desTableData, f
             key_index = 0
             timestamps = []
             parametric_simulation(parametric_info,
+                                  data,
                                   key_index,
                                   timestamps,
                                   solar_output_vars, desal_output_vars, finance_output_vars,
@@ -986,6 +1052,7 @@ def find_interval_values(Min, Max, Interval):
         
         
 def parametric_simulation(parametric_dict,
+                          data,
                           key_index, 
                           timestamps,
                           # Carry on the dataframe of each JSON file  
@@ -999,7 +1066,12 @@ def parametric_simulation(parametric_dict,
                           desal_model_outfile_path,  finance_model_outfile_path  
                           ):
     
-    app = helpers.json_load(cfg.app_json)    
+    # app = helpers.json_load(cfg.app_json)  
+    for item in data:
+        if 'app_json' in item.keys():
+            app = item['app_json']
+        else:
+            app = {}  
     
     if key_index < len(parametric_dict):
         variable_name = list(parametric_dict.keys())[key_index]
@@ -1018,7 +1090,7 @@ def parametric_simulation(parametric_dict,
             elif parametric_dict[variable_name][3] == 'finance':
                 finance_output_vars[variable_name] = v
                 
-            parametric_simulation(parametric_dict, key_index, timestamps, solar_output_vars, desal_output_vars, finance_output_vars,  input_combinations, solar_model_outfile_path,desal_model_outfile_path,finance_model_outfile_path )
+            parametric_simulation(parametric_dict, data, key_index, timestamps, solar_output_vars, desal_output_vars, finance_output_vars,  input_combinations, solar_model_outfile_path,desal_model_outfile_path,finance_model_outfile_path )
     
             # Update JSON and run model when the last variable is assigned
             if key_index == len(parametric_dict):
