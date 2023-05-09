@@ -21,7 +21,7 @@ cols = [{'name':'Variable', 'id':'Label','editable':False},
 
 chart_navbar = dbc.NavbarSimple(
     children=[dbc.NavItem(dbc.NavLink("Home", href='/home')),
-              dbc.NavItem(dbc.NavLink("Models"), active=True)],
+              dbc.NavItem(dbc.NavLink("Models", active=True))],
     brand="Model Selection",
     color="primary",
     dark=True,
@@ -37,7 +37,7 @@ model_selection_layout = html.Div([
                 type="text",
             ),    
    
-    dbc.FormGroup([
+    dbc.Row([
         dbc.Label("Solar Energy Generation", width=2, size='lg',color='warning',style={'text-align':'center'}),
         dbc.Col(
             dbc.RadioItems(
@@ -69,8 +69,8 @@ model_selection_layout = html.Div([
                 value='linear_fresnel_dsg_iph',
             ),width=10,
         ),
-    ],row=True),
-    dbc.FormGroup([
+    ]),
+    dbc.Row([
         #dbc.Label("Desalination System", width=2, size='lg',color='success',style={'text-align':'center'}),
         dbc.Label("Desalination",width=2, size='lg',color='info',style={'text-align':'center'}),
         dbc.Col(
@@ -78,16 +78,16 @@ model_selection_layout = html.Div([
                 id='select-desal',
             ),width=10,
         ),
-    ],row=True,),
-    dbc.FormGroup([
+    ],),
+    dbc.Row([
         dbc.Label("Financial",width=2, size='lg',color='success',style={'text-align':'center'}),
         dbc.Col(
             dbc.RadioItems(
                 id='select-finance',
             ),width=10,
         ),
-    ],row=True,),
-    dbc.FormGroup([
+    ],),
+    dbc.Row([
         dbc.Label("Parametric Study",width=2, size='lg',color='primary',style={'text-align':'center', 'padding':0}),
         dbc.Col(
             dbc.Checklist(
@@ -96,10 +96,18 @@ model_selection_layout = html.Div([
                 switch=True,
             ),width=10,
         ),
-    ],row=True, inline=True), 
+    ]), 
     dbc.Col(id='model-parameters',
     width=2, 
-    style={'horizontal-align':'center'})
+    style={'horizontal-align':'center'}),
+    dbc.Row([
+        dbc.Label("test",width=2, size='lg',color='success',style={'text-align':'center'}),
+        dbc.Col(
+            
+                id='session_data',
+        ),
+    ],),
+
 ],style={'margin-bottom':150})
 
 
@@ -112,7 +120,7 @@ model_selection_layout = html.Div([
      Input('select-desal', 'value'),
      Input('select-finance', 'value'),
      Input('parametric-toggle', 'value'),
-     Input('project_name', 'value')])
+     Input('project_name', 'value',)])
 def display_model_parameters(solar, desal, finance, parametric, project_name):
     '''
     After all 3 models are selected updates app JSON file and 
@@ -120,15 +128,27 @@ def display_model_parameters(solar, desal, finance, parametric, project_name):
     '''
     if solar and desal and finance:
         toggle=True if parametric else False
-        try:
-            helpers.json_update(data={'solar':solar, 'desal':desal, 'finance':finance, 'parametric':toggle, 'project_name': project_name, 'timestamp': '2021-06-19_10-03-11'}, filename=cfg.app_json)
-        except FileNotFoundError:
-            helpers.initialize_json(cfg.app_json_init,cfg.app_json)
-            helpers.json_update(data={'solar':solar, 'desal':desal, 'finance':finance, 'parametric':toggle, 'project_name': project_name, 'timestamp': '2021-06-19_10-03-11'}, filename=cfg.app_json)
+        # helpers.json_update(data={'solar':solar, 'desal':desal, 'finance':finance, 'parametric':toggle, 'project_name': project_name, 'timestamp': '2021-06-19_10-03-11'}, filename=cfg.app_json)
+        # data['test'] = {'solar':solar, 'desal':desal, 'finance':finance, 'parametric':toggle, 'project_name': project_name, 'timestamp': '2021-06-19_10-03-11'}
+
         return html.Div([
             html.P(),
-            dcc.Link(dbc.Button("Next", color="primary", block=True, size='lg'), href='/model-variables')])
+            dcc.Link(dbc.Button("Next", color="primary", size='lg'), href='/model-variables')])
   
+# store data in session store
+@app.callback(
+        Output('session', 'data'), 
+        [Input('select-solar', 'value'),
+        Input('select-desal', 'value'),
+        Input('select-finance', 'value'),
+        Input('parametric-toggle', 'value'),
+        Input('project_name', 'value')])
+def updated_stored_parameters(solar, desal, finance, parametric, project_name):
+    toggle=True if parametric else False
+    data = []
+    data.append({'app_json':{'solar':solar, 'desal':desal, 'finance':finance, 'parametric':toggle, 'project_name': project_name, 'timestamp': '2021-06-19_10-03-11'}})
+    return data
+
 # display desal model options after solar model has been selected
 @app.callback(
     Output('select-desal', 'options'),
@@ -142,3 +162,13 @@ def set_desal_options(solarModel):
     [Input('select-solar', 'value')])
 def set_finance_options(desalModel):
     return [{'label': cfg.Financial[i[0]], 'value': i[0], 'disabled': i[1]} for i in cfg.solarToFinance[desalModel]]
+
+@app.callback(Output('session_data', 'children'), 
+                    [Input('session','data')])
+def load_data(data):
+    for item in data:
+
+        if 'app_json' in item.keys():
+            return str(item['app_json'])
+        else:
+            return('no model specified')
