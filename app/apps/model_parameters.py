@@ -504,9 +504,10 @@ for model, functions in pdeps.functions_per_model.items():
     Output('tabs-card', 'children'),
     [Input('tabs-data-initialize', 'children'),
      Input('sam-json','contents'), 
-     Input('session', 'data')]
+     Input('session', 'data')], 
+     State('map_session', 'data')
 )
-def create_tabs_and_tables(x, samjson, data):
+def create_tabs_and_tables(x, samjson, data, map_data):
     # return the tabs belonging to the collapse button
 
     #create dict lookups for model and filenames
@@ -549,9 +550,18 @@ def create_tabs_and_tables(x, samjson, data):
         json_vals=flkup['desal_finance_values_file'])
 
     # get values derived from the GIS map that we want to update
-    map_dict = helpers.json_load(cfg.map_json)
-    weather_file = map_dict.get('file_name')
-    tds_value = map_dict.get('FeedC_r')
+    map_json = None
+    for item in map_data:
+        if 'mapJson' in item.keys():
+            map_json = item.get('mapJson')
+    if map_json is not None:
+        weather_file = map_json.get('file_name')
+        tds_value = map_json.get('FeedC_r')
+    else:
+        weather_file = str(cfg.base_path) + '/SAM_flatJSON/solar_resource/solar_resource/USA CA San Jose Intl Ap (TMY3).csv'
+    # map_dict = helpers.json_load(cfg.map_json)
+    # weather_file = map_dict.get('file_name')
+    # tds_value = map_dict.get('FeedC_r')
 
     # find the weather file table and update
     if weather_file:
