@@ -102,15 +102,15 @@ chart_navbar = dbc.NavbarSimple(
     style={'margin-bottom':60}
 )
 
-def real_time_layout():
+def real_time_layout(app):
     solar_radios = html.Div([
         dbc.Row([
             dbc.Col(
                 dcc.RadioItems(
                     id='select-solar-chart',
                     options=[{'label': f" {name}", 'value': name}
-                            for name in solar_names[helpers.json_load(cfg.app_json)['solar']]],
-                    value=solar_names[helpers.json_load(cfg.app_json)['solar']][0],
+                            for name in solar_names[app['solar']]],
+                    value=solar_names[app['solar']][0],
                     labelStyle = {'display': 'block'}),
                 width=4),
             dbc.Col(
@@ -129,8 +129,8 @@ def real_time_layout():
                 dcc.RadioItems(
                     id='select-desal-chart',
                     options=[{'label': f" {name}", 'value': name}
-                            for name in desal_names[helpers.json_load(cfg.app_json)['desal']]],
-                    value=desal_names[helpers.json_load(cfg.app_json)['desal']][0],
+                            for name in desal_names[app['desal']]],
+                    value=desal_names[app['desal']][0],
                     labelStyle = {'display': 'block'}),
                 width=2),
             dbc.Col(
@@ -149,10 +149,10 @@ def real_time_layout():
         dcc.Store(id='solar-storage'),
         dcc.Store(id='desal-storage'),
         dbc.Container([ 
-            html.H3(cfg.Solar[helpers.json_load(cfg.app_json)['solar']], className='text-success', style={'margin-bottom':0, 'text-align':'center'}),
+            html.H3(cfg.Solar[app['solar']], className='text-success', style={'margin-bottom':0, 'text-align':'center'}),
             dcc.Graph(id='solar-graph'),
             solar_radios,
-            html.H3(cfg.Desal[helpers.json_load(cfg.app_json)['desal']], className='text-success',style={'margin-top':45, 'margin-bottom':0, 'text-align':'center'}),
+            html.H3(cfg.Desal[app['desal']], className='text-success',style={'margin-top':45, 'margin-bottom':0, 'text-align':'center'}),
             dcc.Graph(id='desal-graph'),
             desal_radios,
         ],style={'margin-bottom':150})
@@ -165,15 +165,26 @@ def real_time_layout():
 
 @app.callback(
     Output('solar-storage', 'data'),
-    [Input('initialize', 'children')])
-def store_solar_data(x):
+    [Input('initialize', 'children'),
+     Input('session', 'data'),
+     Input('output_session', 'data')])
+def store_solar_data(x, data, output):
+    for item in data:
+        if 'app_json' in item.keys():
+            app = item.get('app_json')
+
+    for item in output:
+        if 'solar_output' in item.keys():
+            solar_output = item.get('solar_output')
+
     # load simulation results from JSONs
-    sol_outfile = 'Solar_output' + helpers.json_load(cfg.app_json)['timestamp'] + '.json'
-    print(sol_outfile)
-    sol = helpers.json_load(cfg.sam_results_dir / sol_outfile)
+    sol_outfile = 'Solar_output' + app['timestamp'] + '.json'
+
+    sol = solar_output
 
     solar_indexes = [helpers.index_in_list_of_dicts(sol,'Name', x)
-                    for x in solar_names[helpers.json_load(cfg.app_json)['solar']]]
+                    for x in solar_names[app['solar']]]
+
     solar_units = {sol[x]['Name']:sol[x]['Unit'] for x in solar_indexes}
     # the arrays all need to be the same size
     # creates dummy variables (zeros) if they are not
@@ -192,7 +203,7 @@ def store_solar_data(x):
     # data frame of arrays, fortunately all the same shape!
     df_solar = pd.DataFrame(
             solar_array_data,
-            columns = solar_names[helpers.json_load(cfg.app_json)['solar']]
+            columns = solar_names[app['solar']]
     ).round(2)
     df = df_solar.to_dict()
     solarDict = {'units': solar_units, 'df_dict': df}
@@ -200,15 +211,25 @@ def store_solar_data(x):
 
 @app.callback(
     Output('desal-storage', 'data'),
-    [Input('initialize', 'children')])
-def store_desal_data(x):
-    alkup = helpers.json_load(cfg.app_json)
-    flkup = cfg.build_file_lookup(alkup['solar'], alkup['desal'], 
-                                  alkup['finance'],alkup['timestamp'])
-    des = helpers.json_load(flkup['sam_desal_simulation_outfile'])
+    [Input('initialize', 'children'),
+     Input('session', 'data'),
+     Input('output_session', 'data')])
+def store_desal_data(x, data, output):
+    for item in data:
+        if 'app_json' in item.keys():
+            app = item.get('app_json')
+
+    for item in output:
+        if 'simulation_output' in item.keys():
+            simulation_output = item.get('simulation_output')
+
+    # alkup = helpers.json_load(cfg.app_json)
+    flkup = cfg.build_file_lookup(app['solar'], app['desal'], 
+                                  app['finance'],app['timestamp'])
+    des = simulation_output
 
     desal_indexes = [helpers.index_in_list_of_dicts(des,'Name', x)
-                    for x in desal_names[helpers.json_load(cfg.app_json)['desal']]]
+                    for x in desal_names[app['desal']]]
     desal_arrays = [des[x]['Value'] for x in desal_indexes]
     desal_units = {des[x]['Name']:des[x]['Unit'] for x in desal_indexes}
 
@@ -217,7 +238,7 @@ def store_desal_data(x):
     # data frame of arrays, fortunately all the same shape!
     df_desal = pd.DataFrame(
             desal_array_data,
-            columns = desal_names[helpers.json_load(cfg.app_json)['desal']]
+            columns = desal_names[app['desal']]
     ).round(2)
 
     dfd = df_desal.to_dict()
