@@ -227,12 +227,33 @@ def set_baselayer(url):
 
 @app.callback(Output(RESULTS_MAP_ID, "center"),
             [Input("init_center", "children")],
-            State("map_session", "data"))
-def set_center(initc, data):
+            [State("map_session", "data"),
+             State("input_session","data")]
+    )
+def set_center(initc, data, session_data):
     # map_data = helpers.json_load(app_config.map_json)
     # site_lat=map_data['latitude']
     # site_long=map_data['longitude']
     map_data = None
+    # if we don't have map data, read the weather file 
+    if data is None:
+        if session_data is None:
+            site_lat = 35
+            site_long = -100
+            return (site_lat,site_long)
+        else:
+            for item in session_data:
+                if 'solar_input' in item.keys():
+                    input_params = item.get('solar_input')
+            wx_file = input_params.get('file_name')
+            with open(wx_file, 'r') as f:
+                # line1 = f.next()
+                line1 = f.readline()
+                line2 = f.readline()
+            site_lat=float(line2.split(',')[5])
+            site_long = float(line2.split(',')[6])
+            return(site_lat, site_long)
+    
     for item in data:
         if 'mapJson' in item.keys():
             map_data = item.get('mapJson')
@@ -313,39 +334,42 @@ def update_price_layers(price_factor,closest_from_map,output_data):
                 Output("results-closest-facilities", 'children'), 
                 Output(LOADING_STATUS, 'children'),
                 Output(LINKS_SECTION,'children')],
-                [Input('init_center', 'children')],
+                [Input('init_center', 'children'), 
+                 Input(RESULTS_MAP_ID, 'center')],
                 [State('map_session', 'data')],
                 prevent_initial_call=False
             )
-def get_point_info(_, data):
+def get_point_info(_, map_center, data):
     '''update the site information based on user selected point'''
-    print(data)
     # # map_data = helpers.json_load(app_config.map_json)
     # site_lat=map_data['latitude']
     # site_long=map_data['longitude']
     # lat_lng = (site_lat, site_long)
     # markdown,links = pointLocationLookup.lookupLocation(lat_lng)
     # return dash.no_update
-    if data is None:
-        return dash.no_update
+
+
+    site_lat = map_center[0]
+    site_long = map_center[1]
+    lat_lng = (site_lat, site_long)
     markdown = None
     links = []
-    for item in data:
-        if 'markdown' in item.keys():
-            markdown = item.get('markdown')
-        elif 'links' in item.keys():
-            links = item.get('links')
-        elif 'mapJson' in item.keys():
-            map_data = item.get('mapJson')
 
-    site_lat=map_data['latitude']
-    site_long=map_data['longitude']
-    lat_lng = (site_lat, site_long)
+    if data is not None:
+        for item in data:
+            if 'markdown' in item.keys():
+                markdown = item.get('markdown')
+            elif 'links' in item.keys():
+                links = item.get('links')
+            # elif 'mapJson' in item.keys():
+            #     map_data = item.get('mapJson')
 
     if markdown:
         markdown = dcc.Markdown(markdown)
+    if not all((markdown, links)):
+        markdown, links, _ = pointLocationLookup.lookupLocation(lat_lng)
 
-    emd = lookup_openei_rates.lookup_rates(lat_lng[0],lat_lng[1])
+    emd = lookup_openei_rates.lookup_rates(site_lat,site_long)
     #pmd = str(lookup_nrel_utility_prices.lookup_rates(lat_lng[0],lat_lng[1]))
     if emd:
         links.append(emd)
