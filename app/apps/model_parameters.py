@@ -232,7 +232,7 @@ def create_variable_lists(model_name, json_vars, json_vals):
                     pass
     return model_vars
 
-def run_model(csp, desal, finance, desal_input, solar_input, cost_input, json_file, desal_file, finance_file, timestamps,app):
+def run_model(csp, desal, finance, desal_input, solar_input, cost_input, map_data,json_file, desal_file, finance_file, timestamps,app):
     '''
     runs solar thermal desal system with financial model
     '''
@@ -247,6 +247,7 @@ def run_model(csp, desal, finance, desal_input, solar_input, cost_input, json_fi
                         solar_input = solar_input,
                         cost_input = cost_input,
                         app = app,
+                        map_data= map_data,
                         json_value_filepath=None,
                         desal_json_value_filepath=None,
                         cost_json_value_filepath=None,
@@ -873,6 +874,7 @@ def toggle_powertower2_alert(_init, data):
     [Input('model-button','n_clicks'), 
      ],
     [State('session','data'),
+    State('map_session', 'data'),
     State({'type':'solar-table', 'index': ALL, 'model': ALL}, 'data'), 
     State({'type':'desal-table', 'index': ALL, 'model': ALL}, 'data'),
     State({'type':'finance-table', 'index': ALL, 'model': ALL}, 'data'),
@@ -883,7 +885,7 @@ def toggle_powertower2_alert(_init, data):
     prevent_initial_call=True)
     # For pulling the selected parametric variables???
     #  Input('datatable-row-ids', 'selected_row_ids'),
-def update_model_variables_and_run_model(n_clicks, data, solTableData, desTableData, finTableData,
+def update_model_variables_and_run_model(n_clicks, data, map_session_data, solTableData, desTableData, finTableData,
                                          selectedSolarRows, selectedDesalRows, selectedFinRows,
                                          sam_json): 
     '''
@@ -895,6 +897,12 @@ def update_model_variables_and_run_model(n_clicks, data, solTableData, desTableD
     converted to json and used as input to run the model.
     Finally the model is run.
     '''
+
+    for item in map_session_data:
+        if 'mapJson' in item.keys():
+            map_data = item.get('mapJson')
+            break
+
     if not n_clicks:
         return dash.no_update
 
@@ -1044,6 +1052,7 @@ def update_model_variables_and_run_model(n_clicks, data, solTableData, desTableD
                           solar_input = solar_output_vars,
                           cost_input = finance_output_vars,
                           app = app,
+                          map_data = map_data,
                           json_file=None,
                           desal_file=None,
                           finance_file=None,

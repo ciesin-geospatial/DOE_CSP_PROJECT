@@ -20,6 +20,7 @@ class SamBaseClass(object):
                  solar_input = {},
                  cost_input = {},
                  app = {},
+                 map_data = {},
                  json_value_filepath = None,
                  desal_json_value_filepath = None,
                  cost_json_value_filepath = None,
@@ -35,6 +36,7 @@ class SamBaseClass(object):
         self.cost_input = cost_input
         self.samPath = Path(__file__).resolve().parent
         self.timestamp = timestamp
+        self.map_data = map_data
         # # Use the user defined json file as input values
         # if json_value_filepath:
         #     self.json_values = json_value_filepath
@@ -1139,74 +1141,75 @@ class SamBaseClass(object):
             # with open(inputfile, 'w') as outfile:
             #     json.dump(variableValues, outfile)
         return variableValues 
-    
-    map_json = cfg.map_json
-    with open(map_json, "r") as read_file:
-        map_data = json.load(read_file)       
-        latitude = map_data['latitude']
-    other_input_variables = {
-        "tcstrough_physical":{},
-        "tcsMSLF":{},
-        "tcsmolten_salt":{},
-        "tcsdirect_steam":{},
-        "trough_physical_process_heat":{'track_mode': 1,
-                                        'tilt': 0,
-                                        'azimuth': 0,
-                                        'accept_mode': 0,
-                                        'accept_init': 0,
-                                        'accept_loc': 1,
-                                        'mc_bal_hot': 20000000298023224,
-                                        'mc_bal_cold': 20000000298023224,
-                                        'mc_bal_sca': 4.5},
-        "linear_fresnel_dsg_iph":{},  
-        "pvsamv1":{},   
-        "pvwattsv7":{},   
-        "SC_FPC":{},
-        "tcslinear_fresnel":{'track_mode': 1,
-                             'tilt': 0,
-                             'azimuth': 0,
-                             'PB_pump_coef': 0,
-                             'pc_mode': 1,
-                             'm_dot_st':0,
-                             'T_wb': 12.800000190734863,
-                             'T_db_pwb': 12.800000190734863,
-                             'P_amb_pwb': 960,
-                             'relhum': 0.25,
-                             'dp_b': 0,
-                             'dp_sh': 5,
-                             'dp_rh': 0,
-                             'tes_hours': 0,
-                             'dnifc': 0,
-                             'I_bn': 0,
-                             "T_db" : 15,
-	                         "T_dp" : 10,
-	                         "P_amb" : 930.5,
-                             "V_wind" : 0,
-                             "m_dot_htf_ref" : 0,
-                             "m_pb_demand" : 0,
-                             "shift" : 0,
-                             "SolarAz_init" : 0,
-                             "SolarZen" : 0,
-                             "T_pb_out_init" : 290,
-                             'standby_control': 0,
-                             'latitude': latitude
-                             },
-        "singleowner": {
-                        "cp_battery_nameplate": 0,}
-						
-        }
+
+    def other_input_variables(self):    
+        latitude = self.map_data['latitude']
+        print(latitude)
+        return {
+            "tcstrough_physical":{},
+            "tcsMSLF":{},
+            "tcsmolten_salt":{},
+            "tcsdirect_steam":{},
+            "trough_physical_process_heat":{'track_mode': 1,
+                                            'tilt': 0,
+                                            'azimuth': 0,
+                                            'accept_mode': 0,
+                                            'accept_init': 0,
+                                            'accept_loc': 1,
+                                            'mc_bal_hot': 20000000298023224,
+                                            'mc_bal_cold': 20000000298023224,
+                                            'mc_bal_sca': 4.5},
+            "linear_fresnel_dsg_iph":{},  
+            "pvsamv1":{},   
+            "pvwattsv7":{},   
+            "SC_FPC":{},
+            "tcslinear_fresnel":{'track_mode': 1,
+                                'tilt': 0,
+                                'azimuth': 0,
+                                'PB_pump_coef': 0,
+                                'pc_mode': 1,
+                                'm_dot_st':0,
+                                'T_wb': 12.800000190734863,
+                                'T_db_pwb': 12.800000190734863,
+                                'P_amb_pwb': 960,
+                                'relhum': 0.25,
+                                'dp_b': 0,
+                                'dp_sh': 5,
+                                'dp_rh': 0,
+                                'tes_hours': 0,
+                                'dnifc': 0,
+                                'I_bn': 0,
+                                "T_db" : 15,
+                                "T_dp" : 10,
+                                "P_amb" : 930.5,
+                                "V_wind" : 0,
+                                "m_dot_htf_ref" : 0,
+                                "m_pb_demand" : 0,
+                                "shift" : 0,
+                                "SolarAz_init" : 0,
+                                "SolarZen" : 0,
+                                "T_pb_out_init" : 290,
+                                'standby_control': 0,
+                                'latitude': latitude
+                                },
+            "singleowner": {
+                            "cp_battery_nameplate": 0,}
+                            
+            }
+        
 
     def set_data(self, variables):
 
         # Map all the strings present in the json file.
         stringsInJson = {}
         added_variables = {}
-        
-        for name, value in self.other_input_variables[self.cspModel].items():
+        temp_data = self.other_input_variables()
+        print(temp_data)
+        for name, value in temp_data[self.cspModel].items():
             self.ssc.data_set_number( self.data, b''+ name.encode("ascii", "backslashreplace"), value )
 
         if self.financialModel == 'singleowner':
-            for name, value in self.other_input_variables['singleowner'].items():     
+            for name, value in temp_data['singleowner'].items():     
                 if type(value) == list:
                     self.ssc.data_set_array(  self.data, b''+ name.encode("ascii", "backslashreplace"), value )
                 else:
