@@ -16,6 +16,7 @@ layout = html.Div([
               data=[]),                      
     dcc.Store(id='output_session',storage_type='session',
               data=[]), 
+    dcc.Store(id='map_sesssion',storage_type='session'),
 ])
 app.layout = layout
 app.title = 'Solar Desalination Analysis Tool'
