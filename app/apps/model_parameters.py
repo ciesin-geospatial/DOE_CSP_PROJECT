@@ -897,11 +897,15 @@ def update_model_variables_and_run_model(n_clicks, data, map_session_data, solTa
     converted to json and used as input to run the model.
     Finally the model is run.
     '''
-
-    for item in map_session_data:
-        if 'mapJson' in item.keys():
-            map_data = item.get('mapJson')
-            break
+    print('map session data: ')
+    print(map_session_data)
+    if map_session_data is not None:
+        for item in map_session_data:
+            if 'mapJson' in item.keys():
+                map_data = item.get('mapJson')
+                break
+    else:
+        map_data = None
 
     if not n_clicks:
         return dash.no_update

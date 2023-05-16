@@ -1143,7 +1143,10 @@ class SamBaseClass(object):
         return variableValues 
 
     def other_input_variables(self):    
-        latitude = self.map_data['latitude']
+        if self.map_data is None:
+            latitude = 35.0
+        else:
+            latitude = self.map_data['latitude']
         print(latitude)
         return {
             "tcstrough_physical":{},
