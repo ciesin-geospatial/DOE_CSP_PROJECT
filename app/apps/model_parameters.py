@@ -551,14 +551,19 @@ def create_tabs_and_tables(x, samjson, data, map_data):
 
     # get values derived from the GIS map that we want to update
     map_json = None
-    for item in map_data:
-        if 'mapJson' in item.keys():
-            map_json = item.get('mapJson')
-    if map_json is not None:
-        weather_file = map_json.get('file_name')
-        tds_value = map_json.get('FeedC_r')
+    if map_data:
+        for item in map_data:
+            if 'mapJson' in item.keys():
+                map_json = item.get('mapJson')
+        if map_json is not None:
+            weather_file = map_json.get('file_name')
+            tds_value = map_json.get('FeedC_r')
+        else:
+            weather_file = str(cfg.base_path) + '/SAM_flatJSON/solar_resource/USA CA San Jose Intl Ap (TMY3).csv'
+            tds_value = 35
     else:
-        weather_file = str(cfg.base_path) + '/SAM_flatJSON/solar_resource/solar_resource/USA CA San Jose Intl Ap (TMY3).csv'
+        weather_file = str(cfg.base_path) + '/SAM_flatJSON/solar_resource/USA CA San Jose Intl Ap (TMY3).csv'
+        tds_value = 35
     # map_dict = helpers.json_load(cfg.map_json)
     # weather_file = map_dict.get('file_name')
     # tds_value = map_dict.get('FeedC_r')
