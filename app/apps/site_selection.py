@@ -334,7 +334,6 @@ def get_point_info(lat_lng):
     # prevent_initial_call not working, not sure why
     if lat_lng is None:
         return None, [None,None,None,None], None, None, None
-    ## Temporarily returning closest to store in session! 
     markdown, links, mapJson = pointLocationLookup.lookupLocation(lat_lng)
     print('!!!!!!!!!!!!!!!!!!!!!')
     print()
@@ -342,26 +341,24 @@ def get_point_info(lat_lng):
     print()
     print('!!!!!!!!!!!!!!!')
     markdown = dcc.Markdown(markdown)
-    #markdown = pointLocationLookup.lookupLocation(lat_lng)
-    # print(f'Links: {links}')
     emd = lookup_openei_rates.lookup_rates(lat_lng[0],lat_lng[1])
     if emd:
         links.append(emd)
         
     closest = pointLocationLookup.getClosestInfrastructure(lat_lng)
     if not closest:
-        return markdown, [None,None,None,None], None, links, None
+        return markdown, [None,None,None,None], None, links, mapJson
     elif 'plant' in closest.keys():
         desal = dl.Polyline(positions=[lat_lng,closest['desal']], color='#FF0000', children=[dl.Tooltip("Desal Plant")])          
         plant = dl.Polyline(positions=[lat_lng,closest['plant']], color='#ffa500', children=[dl.Tooltip("Power Plant")])
         canal = dl.Polyline(positions=[lat_lng,closest['canal']], color='#add8e6', children=[dl.Tooltip("Canal/Piped Water")])
         water = dl.Polyline(positions=[lat_lng,closest['water']], color='#000000', children=[dl.Tooltip("Water Network Proxy")])
-        return markdown, [desal,plant,canal,water], None, links, closest
+        return markdown, [desal,plant,canal,water], None, links, mapJson
     elif 'desal' in closest.keys():
         desal = dl.Polyline(positions=[lat_lng,closest['desal']], color='#FF0000', children=[dl.Tooltip("Desal Plant")])
-        return markdown, [desal,None,None,None], None, links, closest
+        return markdown, [desal,None,None,None], None, links, mapJson
     else:
-        return markdown, [None,None,None,None], None, links, closest
+        return markdown, [None,None,None,None], None, links, mapJson
 
         
 @app.callback(
