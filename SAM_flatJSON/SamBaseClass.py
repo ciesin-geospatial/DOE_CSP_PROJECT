@@ -16,6 +16,10 @@ class SamBaseClass(object):
                  CSP = 'linear_fresnel_dsg_iph',
                  financial = 'iph_to_lcoefcr',
                  desalination =  'VAGMD',
+                 desal_input = {},
+                 solar_input = {},
+                 cost_input = {},
+                 app = {},
                  json_value_filepath = None,
                  desal_json_value_filepath = None,
                  cost_json_value_filepath = None,
@@ -26,39 +30,41 @@ class SamBaseClass(object):
         self.cspModel = CSP
         self.financialModel = financial
         self.desalination = desalination
+        self.desal_input = desal_input
+        self.solar_input = solar_input
+        self.cost_input = cost_input
         self.samPath = Path(__file__).resolve().parent
         self.timestamp = timestamp
-        # Use the user defined json file as input values
-        if json_value_filepath:
-            self.json_values = json_value_filepath
+        # # Use the user defined json file as input values
+        # if json_value_filepath:
+        #     self.json_values = json_value_filepath
             
-        # For internal use only, if no json file is given, use default values
-        else:
-            if self.financialModel:
-                Values = self.cspModel + "_" + self.financialModel + ".json"
-                self.json_values = Path(self.samPath / "defaults" /Values)
-            else: # if no finiancial model, just add CSP values
-                Values = self.cspModel + "_none" + ".json"
-                self.json_values = Path(self.samPath / "defaults" /Values)
-         # Add json value filepath for desal models, if any      
-        if desal_json_value_filepath:
-            self.desal_json_values = desal_json_value_filepath
-        else:
-            desal_values = self.desalination + ".json"
-            self.desal_json_values = Path(self.samPath / "defaults" /desal_values)
+        # # For internal use only, if no json file is given, use default values
+        # else:
+        #     if self.financialModel:
+        #         Values = self.cspModel + "_" + self.financialModel + ".json"
+        #         self.json_values = Path(self.samPath / "defaults" /Values)
+        #     else: # if no finiancial model, just add CSP values
+        #         Values = self.cspModel + "_none" + ".json"
+        #         self.json_values = Path(self.samPath / "defaults" /Values)
+        #  # Add json value filepath for desal models, if any      
+        # if desal_json_value_filepath:
+        #     self.desal_json_values = desal_json_value_filepath
+        # else:
+        #     desal_values = self.desalination + ".json"
+        #     self.desal_json_values = Path(self.samPath / "defaults" /desal_values)
             
-        if cost_json_value_filepath:
-            self.cost_json_values = cost_json_value_filepath
-        else:
-            cost_values = self.desalination + "_cost.json"
-            self.cost_json_values = Path(self.samPath / "defaults" /cost_values)  
+        # if cost_json_value_filepath:
+        #     self.cost_json_values = cost_json_value_filepath
+        # else:
+        #     cost_values = self.desalination + "_cost.json"
+        #     self.cost_json_values = Path(self.samPath / "defaults" /cost_values)  
 
-        with open(cfg.app_json) as app_file: 
-            app = json.load(app_file) 
-            self.project_name = app['project_name']                
-            self.parametric = app["parametric"]
+        # with open(cfg.app_json) as app_file: 
+        #     app = json.load(app_file) 
 
-
+        self.project_name = app['project_name']                
+        self.parametric = app["parametric"]
 
 
     def create_ssc_module(self):
@@ -88,13 +94,12 @@ class SamBaseClass(object):
             self.elec_gen = self.ssc.data_get_array(self.data, b'gen')
             self.lcoe = self.ssc.data_get_number(self.data, b'lcoe_fcr')
             
-            
             if self.desalination:
-                self.desal_simulation(self.desalination)
-                self.cost(self.desalination)
+                simu_output = self.desal_simulation(self.desalination)
+                cost_otuput = self.cost(self.desalination)
                             
             self.sam_calculation()
-            self.print_impParams()
+            solar_output = self.print_impParams()
             self.data_free()
 
         elif self.cspModel=='pvwattsv7':
@@ -118,11 +123,11 @@ class SamBaseClass(object):
             
             
             if self.desalination:
-                self.desal_simulation(self.desalination)
-                self.cost(self.desalination)
+                simu_output = self.desal_simulation(self.desalination)
+                cost_output = self.cost(self.desalination)
                             
             self.sam_calculation()
-            self.print_impParams()
+            solar_output = self.print_impParams()
             self.data_free()
       
         
@@ -130,8 +135,9 @@ class SamBaseClass(object):
             from PSA.StaticCollector_flatplate import StaticCollector_fp
             from PSA.SC_ETC_cost import ETC_cost
             
-            with open(self.json_values, "r") as read_file:
-                solar_input = json.load(read_file)
+            # with open(self.json_values, "r") as read_file:
+            #     solar_input = json.load(read_file)
+            solar_input = self.solar_input
             
             self.staticcollector=StaticCollector_fp(desal_thermal_power_req = solar_input['desal_thermal_power_req'],
                                                     initial_water_temp = solar_input['initial_water_temp'],outlet_water_temp = solar_input['outlet_water_temp'],
@@ -141,21 +147,22 @@ class SamBaseClass(object):
             self.heat_gen, self.sc_output = self.staticcollector.design()
             filename = 'Solar_output' + self.timestamp +'.json'
             
-            if self.parametric:
-                sc_output_json_outfile = self.samPath / 'parametric_results' / filename  
-            else:
-                sc_output_json_outfile =  self.samPath / 'results' /filename
-            with open(sc_output_json_outfile, 'w') as outfile:
-                json.dump(self.sc_output, outfile)
+            # if self.parametric:
+            #     sc_output_json_outfile = self.samPath / 'parametric_results' / filename  
+            # else:
+            #     sc_output_json_outfile =  self.samPath / 'results' /filename
+            # with open(sc_output_json_outfile, 'w') as outfile:
+            #     json.dump(self.sc_output, outfile)
             
             # Run desal model first
-            self.desal_simulation(self.desalination)            
+            simu_output = self.desal_simulation(self.desalination)            
 
             # Run solar cost model next
             finance_model_outfile = f"lcoh_calculator{self.timestamp}_inputs.json"
             finance_model_outfile_path = Path(cfg.json_outpath / finance_model_outfile)
-            with open(finance_model_outfile_path, "r") as read_file:
-                cost_input = json.load(read_file)            
+            # with open(finance_model_outfile_path, "r") as read_file:
+            #     cost_input = json.load(read_file)  
+            cost_input = self.cost_input          
 
             self.collector_cost = ETC_cost(aperture_area = self.sc_output[3]['Value'], non_solar_area_multiplier = cost_input['non_solar_area_multiplier'],
                                            capacity = solar_input['desal_thermal_power_req'] * 1000, land_cost = cost_input['land_cost'],
@@ -165,8 +172,8 @@ class SamBaseClass(object):
             self.lcoh = self.cost_out[2]['Value']  
             
             # Run desal cost at last
-            self.cost(self.desalination)
-            self.print_collector_params(self.sc_output)
+            cost_output = self.cost(self.desalination)
+            solar_output = self.print_collector_params(self.sc_output)
             
         elif self.cspModel=='SC_ETC':
             from PSA.StaticCollector_evacuatedtube import StaticCollector_et
@@ -176,8 +183,9 @@ class SamBaseClass(object):
             flkup = cfg.build_file_lookup(app['solar'],app['desal'],app['finance'],app['timestamp'])
             
             
-            with open(self.json_values, "r") as read_file:
-                solar_input = json.load(read_file)
+            # with open(self.json_values, "r") as read_file:
+            #     solar_input = json.load(read_file)
+            solar_input = self.solar_input
             self.staticcollector=StaticCollector_et(desal_thermal_power_req = solar_input['desal_thermal_power_req'],
                                                     initial_water_temp = solar_input['initial_water_temp'],outlet_water_temp = solar_input['outlet_water_temp'],
                                                     cleanless_factor = solar_input['cleanless_factor'],G = solar_input['G'],a = solar_input['a'], b = solar_input['b'], c = solar_input['c'], 
@@ -185,22 +193,22 @@ class SamBaseClass(object):
                                                     v2 = solar_input['v2'], v3 = solar_input['v3'], qm = solar_input['qm'], Tamb_D = solar_input['Tamb_D'] )
             self.heat_gen, self.et_output = self.staticcollector.design()
             filename = 'Solar_output' + self.timestamp +'.json'
-            if self.parametric:
-                et_output_json_outfile = self.samPath / 'parametric_results' / filename  
-            else:
-                et_output_json_outfile =  self.samPath / 'results' /filename
-            with open(et_output_json_outfile, 'w') as outfile:
-                json.dump(self.et_output, outfile)
+            # if self.parametric:
+            #     et_output_json_outfile = self.samPath / 'parametric_results' / filename  
+            # else:
+            #     et_output_json_outfile =  self.samPath / 'results' /filename
+            # with open(et_output_json_outfile, 'w') as outfile:
+            #     json.dump(self.et_output, outfile)
             
             # Run desal model first
-            self.desal_simulation(self.desalination)            
+            simu_output = self.desal_simulation(self.desalination)            
 
             # Run solar cost model next
             finance_model_outfile = f"lcoh_calculator{self.timestamp}_inputs.json"
             finance_model_outfile_path = Path(cfg.json_outpath / finance_model_outfile)
-            with open(finance_model_outfile_path, "r") as read_file:
-                cost_input = json.load(read_file)            
-
+            # with open(finance_model_outfile_path, "r") as read_file:
+            #     cost_input = json.load(read_file)            
+            cost_input = self.cost_input
             self.collector_cost = ETC_cost(aperture_area = self.et_output[3]['Value'], non_solar_area_multiplier = cost_input['non_solar_area_multiplier'], 
                                            capacity = solar_input['desal_thermal_power_req'] * 1000, land_cost = cost_input['land_cost'],
                                            EC = cost_input['EC'], yrs = cost_input['yrs'], int_rate = cost_input['int_rate'], coe = cost_input['coe'], p_OM = cost_input['p_OM'],
@@ -209,8 +217,8 @@ class SamBaseClass(object):
             self.lcoh = self.cost_out[2]['Value']  
             
             # Run desal cost at last
-            self.cost(self.desalination)
-            self.print_collector_params(self.et_output)
+            cost_output = self.cost(self.desalination)
+            solar_output = self.print_collector_params(self.et_output)
         
         elif self.cspModel== 'linear_fresnel_dsg_iph' or self.cspModel == 'trough_physical_process_heat':
             self.ssc = PySSC()
@@ -242,11 +250,11 @@ class SamBaseClass(object):
             
 
             if self.desalination:
-                self.desal_simulation(self.desalination)
-                self.cost(self.desalination)
+                simu_output = self.desal_simulation(self.desalination)
+                cost_output = self.cost(self.desalination)
             
             self.sam_calculation()
-            self.print_impParams()
+            solar_output = self.print_impParams()
             self.data_free()
       
 
@@ -276,8 +284,9 @@ class SamBaseClass(object):
 
             self.T_amb = self.ssc.data_get_number(self.data, b'T_amb_des') # Pa
             self.T_dry = self.ssc.data_get_array(self.data, b'tdry') # Pa            
-            with open(self.json_values, "r") as read_file:
-                sam_input = json.load(read_file)
+            # with open(self.json_values, "r") as read_file:
+            #     sam_input = json.load(read_file)
+            sam_input = self.solar_input
             T_ITD = sam_input['T_ITD_des']
             self.T_cond = [i + T_ITD for i in self.T_dry ]
             
@@ -313,11 +322,11 @@ class SamBaseClass(object):
             # print(self.elec_gen[0:24])
             # print(self.heat_gen[0:24])
             if self.desalination:
-                self.desal_simulation(self.desalination)
-                self.cost(self.desalination)
+                simu_output = self.desal_simulation(self.desalination)
+                cost_output = self.cost(self.desalination)
             
             self.sam_calculation()
-            self.print_impParams()
+            solar_output = self.print_impParams()
             self.data_free()
         
         elif self.cspModel== 'tcstrough_physical' or self.cspModel== 'tcsMSLF'  or self.cspModel== 'tcsmolten_salt':
@@ -345,8 +354,9 @@ class SamBaseClass(object):
 
             self.T_amb = self.ssc.data_get_number(self.data, b'T_amb_des') # Pa
             self.T_dry = self.ssc.data_get_array(self.data, b'tdry') # Pa            
-            with open(self.json_values, "r") as read_file:
-                sam_input = json.load(read_file)
+            # with open(self.json_values, "r") as read_file:
+            #     sam_input = json.load(read_file)
+            sam_input = self.solar_input
             T_ITD = sam_input['T_ITD_des']
             self.T_cond = [i + T_ITD for i in self.T_dry ]
             
@@ -368,11 +378,11 @@ class SamBaseClass(object):
             self.lcoh =  self.lcoe * 0.27
             
             if self.desalination:
-                self.desal_simulation(self.desalination)
-                self.cost(self.desalination)            
+                simu_output = self.desal_simulation(self.desalination)
+                cost_output = self.cost(self.desalination)            
             
             self.sam_calculation()
-            self.print_impParams()
+            solar_output = self.print_impParams()
             self.data_free()
         
         costcsv =   self.project_name + '_' +  self.desalination + '_cost_output' + '_' + self.timestamp + '.csv'
@@ -380,31 +390,34 @@ class SamBaseClass(object):
         simucsv =   self.project_name + '_' +  self.desalination + '_simulation_output' + '_' + self.timestamp + '.csv'
         solarcsv =  self.project_name + '_' +  'Solar_output' + '_' + self.timestamp + '.csv'
         
-        csvlist = [designcsv, simucsv, solarcsv, costcsv]
-        typelist = ['Design output', 'Simulation output', 'Solar output', 'Cost output']
+        # csvlist = [designcsv, simucsv, solarcsv, costcsv]
+        # typelist = ['Design output', 'Simulation output', 'Solar output', 'Cost output']
         
-        wb = xlwt.Workbook()
-        for i in range(len(csvlist)):
-            if self.parametric:
-                csvpath = self.samPath / 'CSV parametric_results' / csvlist[i]
-            else:
-                csvpath = self.samPath / 'CSV results' / csvlist[i]
-            fname = typelist[i]
+        # wb = xlwt.Workbook()
+        # for i in range(len(csvlist)):
+        #     if self.parametric:
+        #         csvpath = self.samPath / 'CSV parametric_results' / csvlist[i]
+        #     else:
+        #         csvpath = self.samPath / 'CSV results' / csvlist[i]
+        #     fname = typelist[i]
 
-            ws = wb.add_sheet(fname)
-            with open(csvpath, 'r') as f:
-                reader = csv.reader(f)
+        #     ws = wb.add_sheet(fname)
+        #     with open(csvpath, 'r') as f:
+        #         reader = csv.reader(f)
                 
-                for r, row in enumerate(reader):
-                    for c, col in enumerate(row):
-                        ws.write(r, c, col)
-        xlxsname = self.project_name + '_' +  'output' + '_' + self.timestamp + '.xls'
-        wb.save(self.samPath / 'XLS results' / xlxsname)
+        #         for r, row in enumerate(reader):
+        #             for c, col in enumerate(row):
+        #                 ws.write(r, c, col)
+        # xlxsname = self.project_name + '_' +  'output' + '_' + self.timestamp + '.xls'
+        # wb.save(self.samPath / 'XLS results' / xlxsname)
+
+        return simu_output, cost_output, solar_output
         
     def sam_calculation(self):
-        with open(self.json_values, "r") as read_file:
-            sam_input = json.load(read_file)
-            
+        # with open(self.json_values, "r") as read_file:
+        #     sam_input = json.load(read_file)
+        sam_input = self.solar_input    
+        
         if self.cspModel == 'linear_fresnel_dsg_iph':
             self.actual_aper = sam_input['nLoops'] * sam_input['nModBoil'] *  sam_input['A_aperture'][0][0]
     
@@ -412,8 +425,8 @@ class SamBaseClass(object):
     
     def desal_design(self, desal):
         
-        with open(self.desal_json_values, "r") as read_file:
-            self.desal_values_json = json.load(read_file)
+        # with open(self.desal_json_values, "r") as read_file:
+        self.desal_values_json =  self.desal_input # json.load(read_file)
 
         if desal == 'RO':
             from DesalinationModels.RO_Fixed_Load import RO
@@ -515,25 +528,29 @@ class SamBaseClass(object):
             self.P_req = self.Generic.P_req
         
         # Write design output to json
-        filename = desal + '_design_output' + self.timestamp + '.json'
+        # filename = desal + '_design_output' + self.timestamp + '.json'
 
-        if self.parametric:
-            design_json_outfile = self.samPath / 'parametric_results' / filename 
+        # if self.parametric:
+        #     design_json_outfile = self.samPath / 'parametric_results' / filename 
 
-        else:
-            design_json_outfile =  self.samPath / 'results' / filename
+        # else:
+        #     design_json_outfile =  self.samPath / 'results' / filename
 
-        with open(design_json_outfile, 'w') as outfile:
-            json.dump(self.design_output, outfile)
+        # with open(design_json_outfile, 'w') as outfile:
+        #     json.dump(self.design_output, outfile)
         
         
-        with open(design_json_outfile) as json_file: 
-            data = json.load(json_file)              
+        # with open(design_json_outfile) as json_file: 
+        #     data = json.load(json_file)        
+
+        return self.design_output      
         
         
     def desal_simulation(self, desal):
-        with open(self.desal_json_values, "r") as read_file:
-            self.desal_values_json = json.load(read_file)
+        # with open(self.desal_json_values, "r") as read_file:
+        #     self.desal_values_json = json.load(read_file)
+        self.desal_values_json = self.desal_input
+        
         if desal == 'RO':
             from DesalinationModels.RO_Fixed_Load import RO
             self.RO = RO(nominal_daily_cap_tmp = self.desal_values_json['nominal_daily_cap_tmp'], FeedC_r = self.desal_values_json['FeedC_r'],
@@ -662,109 +679,110 @@ class SamBaseClass(object):
             self.simu_output = self.Generic.simulation(gen = self.heat_gen, storage = self.desal_values_json['storage_hour'])
 
         # Write design output to csv
-        filename = desal + '_design_output' + self.timestamp + '.json'
-        csvname  = self.project_name + '_' + desal + '_design_output' + '_' + self.timestamp + '.csv'
-        if self.parametric:
-            design_json_outfile = self.samPath / 'parametric_results' / filename 
-            design_csv_outfile = self.samPath / 'CSV parametric_results' / csvname 
-        else:
-            design_json_outfile =  self.samPath / 'results' / filename
-            design_csv_outfile =  self.samPath / 'CSV results' / csvname
-        with open(design_json_outfile, 'w') as outfile:
-            json.dump(self.design_output, outfile)
+        # filename = desal + '_design_output' + self.timestamp + '.json'
+        # csvname  = self.project_name + '_' + desal + '_design_output' + '_' + self.timestamp + '.csv'
+        # if self.parametric:
+        #     design_json_outfile = self.samPath / 'parametric_results' / filename 
+        #     design_csv_outfile = self.samPath / 'CSV parametric_results' / csvname 
+        # else:
+        #     design_json_outfile =  self.samPath / 'results' / filename
+        #     design_csv_outfile =  self.samPath / 'CSV results' / csvname
+        # with open(design_json_outfile, 'w') as outfile:
+        #     json.dump(self.design_output, outfile)
         
         
-        with open(design_json_outfile) as json_file: 
-            data = json.load(json_file)         
-        # now we will open a file for writing 
-        data_file = open(design_csv_outfile, 'w', newline='') 
-        # create the csv writer object 
-        csv_writer = csv.writer(data_file)
-        map_json = cfg.map_json
-        with open(map_json, "r") as read_file:
-            map_data = json.load(read_file)   
-        csv_writer.writerow(["Location", map_data['county'] + '  ' + map_data['state']])
-        csv_writer.writerow(["Desal technology", cfg.Desal[self.desalination]])
-        csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
-        csv_writer.writerow([])        
+        # with open(design_json_outfile) as json_file: 
+        #     data = json.load(json_file)         
+        # # now we will open a file for writing 
+        # data_file = open(design_csv_outfile, 'w', newline='') 
+        # # create the csv writer object 
+        # csv_writer = csv.writer(data_file)
+        # map_json = cfg.map_json
+        # with open(map_json, "r") as read_file:
+        #     map_data = json.load(read_file)   
+        # csv_writer.writerow(["Location", map_data['county'] + '  ' + map_data['state']])
+        # csv_writer.writerow(["Desal technology", cfg.Desal[self.desalination]])
+        # csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
+        # csv_writer.writerow([])        
         
-        count = 0
+        # count = 0
           
-        for i in data: 
-            if count == 0: 
+        # for i in data: 
+        #     if count == 0: 
           
-                # Writing headers of CSV file 
-                header = i.keys() 
-                csv_writer.writerow(header) 
-                count += 1
+        #         # Writing headers of CSV file 
+        #         header = i.keys() 
+        #         csv_writer.writerow(header) 
+        #         count += 1
           
-            # Writing data of CSV file 
-            csv_writer.writerow(i.values()) 
+        #     # Writing data of CSV file 
+        #     csv_writer.writerow(i.values()) 
           
-        data_file.close()   
+        # data_file.close()   
 
         # Write simulation output to csv
-        filename = desal + '_simulation_output' + self.timestamp + '.json'
-        csvname = self.project_name + '_' + desal + '_simulation_output' + '_' + self.timestamp + '.csv'  
+        # filename = desal + '_simulation_output' + self.timestamp + '.json'
+        # csvname = self.project_name + '_' + desal + '_simulation_output' + '_' + self.timestamp + '.csv'  
         
-        if self.parametric:
-            simulation_json_outfile = self.samPath / 'parametric_results' / filename  
-            simulation_csv_outfile = self.samPath / 'CSV parametric_results' / csvname
-        else:
-            simulation_json_outfile =  self.samPath / 'results' / filename
-            simulation_csv_outfile = self.samPath / 'CSV results' /csvname
-        with open(simulation_json_outfile, 'w') as outfile:
-            json.dump(self.simu_output, outfile)
+        # if self.parametric:
+        #     simulation_json_outfile = self.samPath / 'parametric_results' / filename  
+        #     simulation_csv_outfile = self.samPath / 'CSV parametric_results' / csvname
+        # else:
+        #     simulation_json_outfile =  self.samPath / 'results' / filename
+        #     simulation_csv_outfile = self.samPath / 'CSV results' /csvname
+        # with open(simulation_json_outfile, 'w') as outfile:
+        #     json.dump(self.simu_output, outfile)
             
-        with open(simulation_json_outfile) as json_file: 
-            data = json.load(json_file)         
-        # now we will open a file for writing 
-        data_file = open(simulation_csv_outfile, 'w' ,newline='') 
-        # create the csv writer object 
-        csv_writer = csv.writer(data_file) 
+        # with open(simulation_json_outfile) as json_file: 
+        #     data = json.load(json_file)         
+        # # now we will open a file for writing 
+        # data_file = open(simulation_csv_outfile, 'w' ,newline='') 
+        # # create the csv writer object 
+        # csv_writer = csv.writer(data_file) 
         
-        map_json = cfg.map_json
-        with open(map_json, "r") as read_file:
-            map_data = json.load(read_file)   
-        csv_writer.writerow(["Location", map_data['county'] + '  ' + map_data['state']])
-        csv_writer.writerow(["Desal technology", cfg.Desal[self.desalination]])
-        csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
-        csv_writer.writerow([])
-        count = 0
-        time_series = []
-        for i in data: 
-            if count == 0: 
-                # Writing headers of CSV file 
-                header = i.keys() 
-                csv_writer.writerow(header) 
-                count += 1
+        # map_json = cfg.map_json
+        # with open(map_json, "r") as read_file:
+        #     map_data = json.load(read_file)   
+        # csv_writer.writerow(["Location", map_data['county'] + '  ' + map_data['state']])
+        # csv_writer.writerow(["Desal technology", cfg.Desal[self.desalination]])
+        # csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
+        # csv_writer.writerow([])
+        # count = 0
+        # time_series = []
+        # for i in data: 
+        #     if count == 0: 
+        #         # Writing headers of CSV file 
+        #         header = i.keys() 
+        #         csv_writer.writerow(header) 
+        #         count += 1
           
-            # Writing data of CSV file 
-            if type(i["Value"]) != list:
-                csv_writer.writerow(i.values()) 
-            else:
-                if i["Name"] != "Monthly water production":
-                    time_series.append(i)
+        #     # Writing data of CSV file 
+        #     if type(i["Value"]) != list:
+        #         csv_writer.writerow(i.values()) 
+        #     else:
+        #         if i["Name"] != "Monthly water production":
+        #             time_series.append(i)
         
-        header = []
-        for i in time_series:
-            header.append(i["Name"] + " (" + i["Unit"] + ")")
+        # header = []
+        # for i in time_series:
+        #     header.append(i["Name"] + " (" + i["Unit"] + ")")
 
-        csv_writer.writerow([])
-        csv_writer.writerow(["Hour"] + header)
-        for i in range(len(time_series[0]["Value"])):
-            try:
-                csv_writer.writerow([i] + [j["Value"][i] for j in time_series])
-            except:
-                continue
+        # csv_writer.writerow([])
+        # csv_writer.writerow(["Hour"] + header)
+        # for i in range(len(time_series[0]["Value"])):
+        #     try:
+        #         csv_writer.writerow([i] + [j["Value"][i] for j in time_series])
+        #     except:
+        #         continue
           
-        data_file.close()          
+        # data_file.close()          
 
+        return self.simu_output
 
     def cost(self, desal):
-        with open(self.cost_json_values, "r") as read_file:
-            self.cost_values_json = json.load(read_file)   
-
+        # with open(self.cost_json_values, "r") as read_file:
+        #     self.cost_values_json = json.load(read_file)   
+        self.cost_values_json = self.cost_input
 
         if desal == 'RO':
             from DesalinationModels.RO_cost import RO_cost
@@ -967,43 +985,45 @@ class SamBaseClass(object):
         filename = desal + '_cost_output' + self.timestamp + '.json'
         csvname = self.project_name + '_' +  desal + '_cost_output' + '_' + self.timestamp + '.csv'
         
-        if self.parametric:
-            cost_json_outfile = self.samPath / 'parametric_results' / filename  
-            cost_csv_outfile = self.samPath / 'CSV parametric_results' / csvname  
-        else:
-            cost_json_outfile = self.samPath / 'results' /filename 
-            cost_csv_outfile = self.samPath / 'CSV results' / csvname                  
-        with open(cost_json_outfile, 'w') as outfile:
-            json.dump(self.cost_output, outfile)
+        # if self.parametric:
+        #     cost_json_outfile = self.samPath / 'parametric_results' / filename  
+        #     cost_csv_outfile = self.samPath / 'CSV parametric_results' / csvname  
+        # else:
+        #     cost_json_outfile = self.samPath / 'results' /filename 
+        #     cost_csv_outfile = self.samPath / 'CSV results' / csvname                  
+        # with open(cost_json_outfile, 'w') as outfile:
+        #     json.dump(self.cost_output, outfile)
 
-        with open(cost_json_outfile) as json_file: 
-            data = json.load(json_file)         
-        # now we will open a file for writing 
-        data_file = open(cost_csv_outfile, 'w', newline='') 
-        # create the csv writer object 
-        csv_writer = csv.writer(data_file) 
+        # with open(cost_json_outfile) as json_file: 
+        #     data = json.load(json_file)         
+        # # now we will open a file for writing 
+        # data_file = open(cost_csv_outfile, 'w', newline='') 
+        # # create the csv writer object 
+        # csv_writer = csv.writer(data_file) 
         
-        map_json = cfg.map_json
-        with open(map_json, "r") as read_file:
-            map_data = json.load(read_file)   
-        csv_writer.writerow(["Location", map_data['county'] + '  ' + map_data['state']])
-        csv_writer.writerow(["Desal technology", cfg.Desal[self.desalination]])
-        csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]])        
-        csv_writer.writerow([])        
+        # map_json = cfg.map_json
+        # with open(map_json, "r") as read_file:
+        #     map_data = json.load(read_file)   
+        # csv_writer.writerow(["Location", map_data['county'] + '  ' + map_data['state']])
+        # csv_writer.writerow(["Desal technology", cfg.Desal[self.desalination]])
+        # csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]])        
+        # csv_writer.writerow([])        
         
-        count = 0
-        for i in data: 
-            if count == 0: 
+        # count = 0
+        # for i in data: 
+        #     if count == 0: 
           
-                # Writing headers of CSV file 
-                header = i.keys() 
-                csv_writer.writerow(header) 
-                count += 1
+        #         # Writing headers of CSV file 
+        #         header = i.keys() 
+        #         csv_writer.writerow(header) 
+        #         count += 1
           
-            # Writing data of CSV file 
-            csv_writer.writerow(i.values()) 
+        #     # Writing data of CSV file 
+        #     csv_writer.writerow(i.values()) 
           
-        data_file.close()  
+        # data_file.close()  
+
+        return self.cost_output
             
     def collect_model_variables(self):
         # Add CSP variables
@@ -1023,11 +1043,15 @@ class SamBaseClass(object):
             
         variableValues = []
         # Load variable values from JSON
-        with open(self.json_values, "r") as read_file:
-            values_json = json.load(read_file)
-        
-        with open(self.cost_json_values, "r") as read_file:
-            cost_json = json.load(read_file)
+        # with open(self.json_values, "r") as read_file:
+        #     values_json = json.load(read_file)
+        values_json = self.solar_input
+
+        # with open(self.cost_json_values, "r") as read_file:
+        #     cost_json = json.load(read_file)
+        # values_json = self.solar_input
+        cost_json = self.cost_input
+
         values_json.update(cost_json)
             
         # Load variable names from JSON
@@ -1112,8 +1136,8 @@ class SamBaseClass(object):
             #variable.valu
             inputfile = self.samPath / 'results' /'inputdata.json'
                     
-            with open(inputfile, 'w') as outfile:
-                json.dump(variableValues, outfile)
+            # with open(inputfile, 'w') as outfile:
+            #     json.dump(variableValues, outfile)
         return variableValues 
     
     map_json = cfg.map_json
@@ -1360,57 +1384,59 @@ class SamBaseClass(object):
                             'Value':i['Value'],
                             'Unit': i['Unit']})       
         
-        filename = 'Solar_output' + self.timestamp + '.json'
-        csvname = self.project_name + '_Solar_output' + '_' + self.timestamp + '.csv'
-        if self.parametric:
-            json_outfile = self.samPath / 'parametric_results' / filename 
-            csv_outfile = self.samPath / 'CSV parametric_results' / csvname
-        else:
-            json_outfile = self.samPath / 'results' / filename
-            csv_outfile = self.samPath / 'CSV results' / csvname
-        with open(json_outfile, 'w') as outfile:
-            json.dump(outputs, outfile)
-        #print ('outputs = ', outputs)
-        with open(json_outfile) as json_file: 
-            data = json.load(json_file)         
+        # filename = 'Solar_output' + self.timestamp + '.json'
+        # csvname = self.project_name + '_Solar_output' + '_' + self.timestamp + '.csv'
+        # if self.parametric:
+        #     json_outfile = self.samPath / 'parametric_results' / filename 
+        #     csv_outfile = self.samPath / 'CSV parametric_results' / csvname
+        # else:
+        #     json_outfile = self.samPath / 'results' / filename
+        #     csv_outfile = self.samPath / 'CSV results' / csvname
+        # with open(json_outfile, 'w') as outfile:
+        #     json.dump(outputs, outfile)
+        # print ('outputs = ', outputs)
+        # with open(json_outfile) as json_file: 
+        #     data = json.load(json_file)         
         # now we will open a file for writing 
-        data_file = open(csv_outfile, 'w', newline = '') 
+        # data_file = open(csv_outfile, 'w', newline = '') 
         # create the csv writer object 
-        csv_writer = csv.writer(data_file) 
-        map_json = cfg.map_json
-        with open(map_json, "r") as read_file:
-            map_data = json.load(read_file)   
-        csv_writer.writerow(["Location", map_data['county'] + map_data['state']])
-        csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
-        csv_writer.writerow([])
-        count = 0
-        time_series = []
-        for i in data: 
-            if count == 0: 
-                # Writing headers of CSV file 
-                header = i.keys() 
-                csv_writer.writerow(header) 
-                count += 1
+        # csv_writer = csv.writer(data_file) 
+        # map_json = cfg.map_json
+        # with open(map_json, "r") as read_file:
+        #     map_data = json.load(read_file)   
+        # csv_writer.writerow(["Location", map_data['county'] + map_data['state']])
+        # csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
+        # csv_writer.writerow([])
+        # count = 0
+        # time_series = []
+        # for i in data: 
+        #     if count == 0: 
+        #         Writing headers of CSV file 
+        #         header = i.keys() 
+        #         csv_writer.writerow(header) 
+        #         count += 1
           
-            # Writing data of CSV file 
-            if type(i["Value"]) != list:
-                csv_writer.writerow(i.values()) 
-            elif len(i["Value"]) > 24:
-                time_series.append(i)
+        #     Writing data of CSV file 
+        #     if type(i["Value"]) != list:
+        #         csv_writer.writerow(i.values()) 
+        #     elif len(i["Value"]) > 24:
+        #         time_series.append(i)
         
-        header = []
-        for i in time_series:
-            header.append(i["Name"] + " (" + i["Unit"] + ")")
+        # header = []
+        # for i in time_series:
+        #     header.append(i["Name"] + " (" + i["Unit"] + ")")
 
-        csv_writer.writerow([])
-        csv_writer.writerow(["Hour"] + header)
-        for i in range(8760):
-            try:
-                csv_writer.writerow([i] + [j["Value"][i] for j in time_series])
-            except:
-                continue
+        # csv_writer.writerow([])
+        # csv_writer.writerow(["Hour"] + header)
+        # for i in range(8760):
+        #     try:
+        #         csv_writer.writerow([i] + [j["Value"][i] for j in time_series])
+        #     except:
+        #         continue
           
-        data_file.close()     
+        # data_file.close()    
+
+        return outputs 
         
         
     def print_impParams(self):
@@ -1464,57 +1490,59 @@ class SamBaseClass(object):
         
         
 
-        filename = 'Solar_output' + self.timestamp + '.json'
-        csvname = self.project_name + '_Solar_output' + '_' + self.timestamp + '.csv'
-        if self.parametric:
-            json_outfile = self.samPath / 'parametric_results' / filename 
-            csv_outfile = self.samPath / 'CSV parametric_results' / csvname
-        else:
-            json_outfile = self.samPath / 'results' / filename
-            csv_outfile = self.samPath / 'CSV results' / csvname
-        with open(json_outfile, 'w') as outfile:
-            json.dump(outputs, outfile)
-        #print ('outputs = ', outputs)
-        with open(json_outfile) as json_file: 
-            data = json.load(json_file)         
-        # now we will open a file for writing 
-        data_file = open(csv_outfile, 'w', newline = '') 
-        # create the csv writer object 
-        csv_writer = csv.writer(data_file) 
-        map_json = cfg.map_json
-        with open(map_json, "r") as read_file:
-            map_data = json.load(read_file)   
-        csv_writer.writerow(["Location", map_data['county'] + map_data['state']])
-        csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
-        csv_writer.writerow([])
-        count = 0
-        time_series = []
-        for i in data: 
-            if count == 0: 
-                # Writing headers of CSV file 
-                header = i.keys() 
-                csv_writer.writerow(header) 
-                count += 1
+        # filename = 'Solar_output' + self.timestamp + '.json'
+        # csvname = self.project_name + '_Solar_output' + '_' + self.timestamp + '.csv'
+        # if self.parametric:
+        #     json_outfile = self.samPath / 'parametric_results' / filename 
+        #     csv_outfile = self.samPath / 'CSV parametric_results' / csvname
+        # else:
+        #     json_outfile = self.samPath / 'results' / filename
+        #     csv_outfile = self.samPath / 'CSV results' / csvname
+        # with open(json_outfile, 'w') as outfile:
+        #     json.dump(outputs, outfile)
+        # #print ('outputs = ', outputs)
+        # with open(json_outfile) as json_file: 
+        #     data = json.load(json_file)         
+        # # now we will open a file for writing 
+        # data_file = open(csv_outfile, 'w', newline = '') 
+        # # create the csv writer object 
+        # csv_writer = csv.writer(data_file) 
+        # map_json = cfg.map_json
+        # with open(map_json, "r") as read_file:
+        #     map_data = json.load(read_file)   
+        # csv_writer.writerow(["Location", map_data['county'] + map_data['state']])
+        # csv_writer.writerow(["Solar technology", cfg.Solar[self.cspModel]]) 
+        # csv_writer.writerow([])
+        # count = 0
+        # time_series = []
+        # for i in data: 
+        #     if count == 0: 
+        #         # Writing headers of CSV file 
+        #         header = i.keys() 
+        #         csv_writer.writerow(header) 
+        #         count += 1
           
-            # Writing data of CSV file 
-            if type(i["Value"]) != list:
-                csv_writer.writerow(i.values()) 
-            elif len(i["Value"]) > 24:
-                time_series.append(i)
+        #     # Writing data of CSV file 
+        #     if type(i["Value"]) != list:
+        #         csv_writer.writerow(i.values()) 
+        #     elif len(i["Value"]) > 24:
+        #         time_series.append(i)
         
-        header = []
-        for i in time_series:
-            header.append(i["Name"] + " (" + i["Unit"] + ")")
+        # header = []
+        # for i in time_series:
+        #     header.append(i["Name"] + " (" + i["Unit"] + ")")
 
-        csv_writer.writerow([])
-        csv_writer.writerow(["Hour"] + header)
-        for i in range(8760):
-            try:
-                csv_writer.writerow([i] + [j["Value"][i] for j in time_series])
-            except:
-                continue
+        # csv_writer.writerow([])
+        # csv_writer.writerow(["Hour"] + header)
+        # for i in range(8760):
+        #     try:
+        #         csv_writer.writerow([i] + [j["Value"][i] for j in time_series])
+        #     except:
+        #         continue
           
-        data_file.close()     
+        # data_file.close()     
+
+        return outputs
 
     #Setup logging for the SAM modules
     def _setup_logging(self, className, verbose=False, level = logging.INFO):
