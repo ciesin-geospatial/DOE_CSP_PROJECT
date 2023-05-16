@@ -245,18 +245,10 @@ def set_center(initc, data, session_data):
             for item in session_data:
                 if 'solar_input' in item.keys():
                     input_params = item.get('solar_input')
-            wx_file = input_params.get('file_name')
-            with open(wx_file, 'r') as f:
-                # line1 = f.next()
-                line1 = f.readline()
-                line2 = f.readline()
-            site_lat=float(line2.split(',')[5])
-            site_long = float(line2.split(',')[6])
-            return(site_lat, site_long)
-    
-    for item in data:
-        if 'mapJson' in item.keys():
-            map_data = item.get('mapJson')
+    else:
+        for item in data:
+            if 'mapJson' in item.keys():
+                map_data = item.get('mapJson')
 
     if map_data is None:
         site_lat = 35
@@ -334,12 +326,12 @@ def update_price_layers(price_factor,closest_from_map,output_data):
                 Output("results-closest-facilities", 'children'), 
                 Output(LOADING_STATUS, 'children'),
                 Output(LINKS_SECTION,'children')],
-                [Input('init_center', 'children'), 
-                 Input(RESULTS_MAP_ID, 'center')],
-                [State('map_session', 'data')],
+                [Input('init', 'children')],
+                [State('map_session', 'data'),
+                 State('input_session', 'data')],
                 prevent_initial_call=False
             )
-def get_point_info(_, map_center, data):
+def get_point_info(_, data, session_params):
     '''update the site information based on user selected point'''
     # # map_data = helpers.json_load(app_config.map_json)
     # site_lat=map_data['latitude']
@@ -348,33 +340,49 @@ def get_point_info(_, map_center, data):
     # markdown,links = pointLocationLookup.lookupLocation(lat_lng)
     # return dash.no_update
 
+    # site_lat = map_center[0]
+    # site_long = map_center[1]
+    # lat_lng = (site_lat, site_long)
 
-    site_lat = map_center[0]
-    site_long = map_center[1]
-    lat_lng = (site_lat, site_long)
     markdown = None
     links = []
-
+    site_lat = 35
+    site_long = -100
     if data is not None:
         for item in data:
             if 'markdown' in item.keys():
                 markdown = item.get('markdown')
             elif 'links' in item.keys():
                 links = item.get('links')
-            # elif 'mapJson' in item.keys():
-            #     map_data = item.get('mapJson')
+            elif 'mapJson' in item.keys():
+                map_data = item.get('mapJson')
+                site_lat = map_data.get('latitude')
+                site_long = map_data.get('longitude')
+    else:
+        for item in session_params:
+            if 'file_name' in item.keys():
+                wx_file = item.get('file_name')
+                with open(wx_file, 'r') as f:
+                    # line1 = f.next()
+                    line1 = f.readline()
+                    line2 = f.readline()
+                    site_lat=float(line2.split(',')[5])
+                    site_long = float(line2.split(',')[6])
 
+
+    lat_lng = (site_lat, site_long)
     if markdown:
         markdown = dcc.Markdown(markdown)
     if not all((markdown, links)):
         markdown, links, _ = pointLocationLookup.lookupLocation(lat_lng)
+        markdown = dcc.Markdown(markdown)
 
     emd = lookup_openei_rates.lookup_rates(site_lat,site_long)
     #pmd = str(lookup_nrel_utility_prices.lookup_rates(lat_lng[0],lat_lng[1]))
     if emd:
         links.append(emd)
 
-    closest = pointLocationLookup.getClosestInfrastructure(lat_lng)
+    closest = pointLocationLookup.getClosestInfrastructure((site_lat, site_long))
     # TODO: change to .get for keys and return result, leave location handling to pointLocationLookup.
     # Site selected by user from map-data. 
     user_point = dl.Marker(
