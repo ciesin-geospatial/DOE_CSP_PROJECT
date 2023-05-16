@@ -324,10 +324,11 @@ def click_coord(coords):
         Output("closest-facilities", 'children'),
         Output(QUERY_STATUS, 'children'),
         Output(LINKS, 'children'),
-        Output('session', 'data'),
+        Output('map_session', 'data'),
     ],
     [Input(MAP_ID, 'click_lat_lng')],
-    prevent_initial_call=True)
+    prevent_initial_call=True,
+    )
 
 def get_point_info(lat_lng):
     # prevent_initial_call not working, not sure why
