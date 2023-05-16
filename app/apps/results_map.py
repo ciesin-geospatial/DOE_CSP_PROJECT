@@ -38,7 +38,7 @@ mapbox_ids = {
     # 'Regulatory':'gyetman/ck7avopr400px1ilc7j49bi6j', # duplicate entry
 }
 
-RESULTS_MAP_ID = "map-id"
+RESULTS_MAP_ID = "results-map-id"
 RESULTS_BASE_LAYER_ID = "results-base-layer-id"
 RESULTS_BASE_LAYER_DROPDOWN_ID = "base-layer-drop-down-id"
 RESULTS_SITE_DETAILS = "site-details-results"
@@ -226,13 +226,23 @@ def set_baselayer(url):
     return url
 
 @app.callback(Output(RESULTS_MAP_ID, "center"),
-            [Input("init_center", "children")])
-def set_center(initc):
-    map_data = helpers.json_load(app_config.map_json)
-    site_lat=map_data['latitude']
-    site_long=map_data['longitude']
-    return (site_lat,site_long)
+            [Input("init_center", "children")],
+            State("map_session", "data"))
+def set_center(initc, data):
+    # map_data = helpers.json_load(app_config.map_json)
+    # site_lat=map_data['latitude']
+    # site_long=map_data['longitude']
+    map_data = None
+    for item in data:
+        if 'mapJson' in item.keys():
+            map_data = item.get('mapJson')
 
+    if map_data is None:
+        site_lat = 35
+        site_long = -100
+        return (site_lat,site_long)
+    else:
+        return (map_data.get('latitude'), map_data.get('longitude'))
 
 @app.callback(Output('results-theme-layer','children'),
                 [Input('theme-radios', 'value')])
@@ -243,14 +253,26 @@ def set_theme_layer(theme):
             Output('water-price', 'children')],
             Output('price_difference', 'children'),
             [Input("price-factor",'value')],
-            [Input("results-closest-facilities",'children')])
-def update_price_layers(price_factor,closest_from_map):
+            [Input("results-closest-facilities",'children')],
+            State('output_session','data')
+            
+        )
+def update_price_layers(price_factor,closest_from_map,output_data):
     ''' filter the Texas water data and City price data based on model or factor price '''
     if not price_factor:
         price_factor = 1.0 # handle null input
-    app_json = helpers.json_load(app_config.app_json)
-    model_lookup = app_config.build_file_lookup(app_json['solar'],app_json['desal'],app_json['finance'],app_json['timestamp'])
-    finance = helpers.json_load(model_lookup['sam_desal_finance_outfile'])
+    # app_json = helpers.json_load(app_config.app_json)
+
+    finance = None
+    for item in output_data:
+        if 'cost_output' in item.keys():
+            finance = item.get('cost_output')
+
+    if finance is None:
+        return None
+
+    # model_lookup = app_config.build_file_lookup(app_json['solar'],app_json['desal'],app_json['finance'],app_json['timestamp'])
+    # finance = helpers.json_load(model_lookup['sam_desal_finance_outfile'])
     model_price =  finance[helpers.index_in_list_of_dicts(finance,'Name','Levelized cost of water')]['Value']
 
 
@@ -291,18 +313,38 @@ def update_price_layers(price_factor,closest_from_map):
                 Output("results-closest-facilities", 'children'), 
                 Output(LOADING_STATUS, 'children'),
                 Output(LINKS_SECTION,'children')],
-                [Input('init', 'children')],
-                State(RESULTS_SITE_DETAILS, 'children'),
+                [Input('init_center', 'children')],
+                [State('map_session', 'data')],
                 prevent_initial_call=False
             )
-def get_point_info(_,site_details_state):
+def get_point_info(_, data):
     '''update the site information based on user selected point'''
-    map_data = helpers.json_load(app_config.map_json)
+    print(data)
+    # # map_data = helpers.json_load(app_config.map_json)
+    # site_lat=map_data['latitude']
+    # site_long=map_data['longitude']
+    # lat_lng = (site_lat, site_long)
+    # markdown,links = pointLocationLookup.lookupLocation(lat_lng)
+    # return dash.no_update
+    if data is None:
+        return dash.no_update
+    markdown = None
+    links = []
+    for item in data:
+        if 'markdown' in item.keys():
+            markdown = item.get('markdown')
+        elif 'links' in item.keys():
+            links = item.get('links')
+        elif 'mapJson' in item.keys():
+            map_data = item.get('mapJson')
+
     site_lat=map_data['latitude']
     site_long=map_data['longitude']
     lat_lng = (site_lat, site_long)
-    markdown,links = pointLocationLookup.lookupLocation(lat_lng)
-    markdown = dcc.Markdown(markdown)
+
+    if markdown:
+        markdown = dcc.Markdown(markdown)
+
     emd = lookup_openei_rates.lookup_rates(lat_lng[0],lat_lng[1])
     #pmd = str(lookup_nrel_utility_prices.lookup_rates(lat_lng[0],lat_lng[1]))
     if emd:
