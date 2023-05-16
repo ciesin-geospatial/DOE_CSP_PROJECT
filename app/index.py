@@ -2,7 +2,7 @@
 from dash import dcc
 # import dash_html_components as html
 from dash import html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 
 from app import app
 from apps import analysis_report, chart_results, homepage, model_selection, model_parameters, parametric_charts, results_map, site_selection
@@ -12,13 +12,22 @@ layout = html.Div([
     html.Div(id='page-content'),
     dcc.Store(id='session',storage_type='session',
               data=[]),
+    dcc.Store(id='input_session',storage_type='session',
+              data=[]),                      
+    dcc.Store(id='output_session',storage_type='session',
+              data=[]), 
 ])
 app.layout = layout
 app.title = 'Solar Desalination Analysis Tool'
 
 @app.callback(Output('page-content', 'children'),
-              [Input('url', 'pathname')])
-def display_page(pathname):
+              [Input('url', 'pathname')],
+              [State('session','data')])
+def display_page(pathname, data):
+    for item in data:
+        if 'app_json' in item.keys():
+            app = item.get('app_json')
+
     if pathname == '/' or pathname == '/home':
         return homepage.homepage_layout
     elif pathname == '/site-selection':
@@ -28,7 +37,7 @@ def display_page(pathname):
     elif pathname == '/model-variables':
         return model_parameters.model_tables_layout
     elif pathname == '/chart-results':
-        return chart_results.real_time_layout()
+        return chart_results.real_time_layout(app)
     elif pathname == '/parametric-charts':
         return parametric_charts.real_time_layout()
     elif pathname == '/analysis-report':
