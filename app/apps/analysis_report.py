@@ -35,7 +35,7 @@ chart_navbar = dbc.NavbarSimple(
 # analysis_report_title = html.Div([
 #     html.H2('Analysis Report', className='page-header', id='report-title'),
 #     html.P(id='data-initialize')])
-info = helpers.json_load(cfg.app_json)
+# info = helpers.json_load(cfg.app_json)
 
 file_name ='/assets/docs/Excel_results.pdf#page=1' # 'D:/PhD/DOE/DOE_CSP_PROJECT/app/assets/Project_1_output_2021-10-19_10-19-05.xls'
 xls_result = dbc.Button(
@@ -1172,7 +1172,7 @@ def sam_performance(x, report, session):
     for item in session:
         if 'app_json' in item.keys():
             app = item['app_json']
-    app = helpers.json_load(cfg.app_json)
+    # app = helpers.json_load(cfg.app_json)
 
 
     def curtailed_thermal(cte):

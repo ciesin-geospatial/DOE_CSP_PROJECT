@@ -155,7 +155,7 @@ class StaticCollector_et(object):
     
                     G_0n = 1367 * (1.000110 + 0.034221 * np.cos(B[i]) + 0.001280 * np.sin(B[i]) + 0.000719 * np.cos(2*B[i]) + 0.000077 * np.sin(2*B[i]))
                     delta = GDh / G_0n / np.cos(zenith[i])
-                    eps_value = ((GDh + GBn) / GDh + 1.041 * zenith[i]**3)/ (1 + 1.041 * zenith[i]**3)
+                    eps_value = ((GDh + GBn) / (GDh + 0.001) + 1.041 * zenith[i]**3)/ (1 + 1.041 * zenith[i]**3)
     
                     if eps_value < 1.065:
                         eps = 0
