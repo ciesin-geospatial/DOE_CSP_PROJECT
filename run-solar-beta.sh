@@ -1,6 +1,6 @@
 #!/bin/sh
 # activate the python environment
-conda activate solar_beta
+source ~/anaconda3/bin/activate ./sedat_python
 cd ~/DOE/DOE_CSP_PROJECT/app
 # run the process
 python ./index.py
